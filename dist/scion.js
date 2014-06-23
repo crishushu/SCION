@@ -1,69 +1,54 @@
 
 (function(/*! Stitch !*/) {
-
-  var modules = {}, cache = {}, req = function(name, root) {
-    var path = expand(root, name), module = cache[path], fn;
-    if (module) {
-      return module.exports;
-    } else if (fn = modules[path] || modules[path = expand(path, './index')]) {
-      module = {id: path, exports: {}};
-      try {
-        cache[path] = module;
-        fn(module.exports, function(name) {
-          return req(name, dirname(path));
-        }, module);
+  if (!this.require) {
+    var modules = {}, cache = {}, require = function(name, root) {
+      var path = expand(root, name), module = cache[path], fn;
+      if (module) {
         return module.exports;
-      } catch (err) {
-        delete cache[path];
-        throw err;
+      } else if (fn = modules[path] || modules[path = expand(path, './index')]) {
+        module = {id: path, exports: {}};
+        try {
+          cache[path] = module;
+          fn(module.exports, function(name) {
+            return require(name, dirname(path));
+          }, module);
+          return module.exports;
+        } catch (err) {
+          delete cache[path];
+          throw err;
+        }
+      } else {
+        throw 'module \'' + name + '\' not found';
       }
-    } else {
-      throw 'module \'' + name + '\' not found';
-    }
-  }, expand = function(root, name) {
-    var results = [], parts, part;
-    if (/^\.\.?(\/|$)/.test(name)) {
-      parts = [root, name].join('/').split('/');
-    } else {
-      parts = name.split('/');
-    }
-    for (var i = 0, length = parts.length; i < length; i++) {
-      part = parts[i];
-      if (part == '..') {
-        results.pop();
-      } else if (part != '.' && part != '') {
-        results.push(part);
+    }, expand = function(root, name) {
+      var results = [], parts, part;
+      if (/^\.\.?(\/|$)/.test(name)) {
+        parts = [root, name].join('/').split('/');
+      } else {
+        parts = name.split('/');
       }
-    }
-    return results.join('/');
-  }, dirname = function(path) {
-    return path.split('/').slice(0, -1).join('/');
-  };
-
-  return function(bundle) {
-    for (var key in bundle){
-      modules[key] = bundle[key];
-    }
-
-    //UMD
-    if (typeof define === 'function' && define.amd) {
-      // AMD. Register as a named module
-      define([],function(){
-        return req('scion','');
-      });
-    } else {
-      // Browser globals
-      this.scion = req('scion','');
-
-      //define global require
-      if (!this.require) {
-        this.require = function(name) {
-          return req(name, '');
+      for (var i = 0, length = parts.length; i < length; i++) {
+        part = parts[i];
+        if (part == '..') {
+          results.pop();
+        } else if (part != '.' && part != '') {
+          results.push(part);
         }
       }
+      return results.join('/');
+    }, dirname = function(path) {
+      return path.split('/').slice(0, -1).join('/');
+    };
+    this.require = function(name) {
+      return require(name, '');
     }
-  };
-}).call(this)({"base-platform/dom": function(exports, require, module) {/*
+    this.require.define = function(bundle) {
+      for (var key in bundle)
+        modules[key] = bundle[key];
+    };
+  }
+  return this.require.define;
+}).call(this)({"undefinedlib/base-platform/dom": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -156,12 +141,12 @@ module.exports = {
     }
 
 };
-}, "base-platform/eval": function(exports, require, module) {module.exports = function(content,name){
+}, "undefinedlib/base-platform/eval": function(exports, require, module) {module.exports = function(content,name){
     //JScript doesn't return functions from evaled function expression strings, 
     //so we wrap it here in a trivial self-executing function which gets eval'd
     return eval('(function(){\nreturn ' + content + ';})()');
 };
-}, "base-platform/path": function(exports, require, module) {/*
+}, "undefinedlib/base-platform/path": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -210,8 +195,32 @@ module.exports = {
         return path.split(/\\.(?=[^\\.]+$)/)[1];
     }
 };
-}, "browser/browser-listener-client": function(exports, require, module) {//TODO: this will be like node-listener-client.js, except will use jquery/AJAX for its remoting
-}, "browser/dom": function(exports, require, module) {/*
+}, "undefinedlib/browser/browser-listener-client": function(exports, require, module) {//TODO: this will be like node-listener-client.js, except will use jquery/AJAX for its remoting
+}, "undefinedlib/browser/build/stitch": function(exports, require, module) {var stitch = require('stitch');
+var fs = require('fs');
+var path = require('path');
+
+var pkg = stitch.createPackage({
+    rootModuleName  : 'scion',
+    paths: ['lib'],
+    excludes : [
+        path.join('lib','node'),
+        path.join('lib','rhino'),
+        path.join('lib','browser','build'),
+        path.join('lib','external')
+    ]
+});
+
+var out = process.argv[2];
+
+pkg.compile(function (err, source){
+    fs.writeFile(out, source, function (err) {
+        if (err) throw err;
+        console.log('Compiled', out);
+    });
+});
+
+}, "undefinedlib/browser/dom": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -262,7 +271,7 @@ dom.serializeToString = function(node){
 };
 
 module.exports = dom;
-}, "browser/platform": function(exports, require, module) {/*
+}, "undefinedlib/browser/platform": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -346,7 +355,7 @@ exports.platform = {
     dom : require('./dom')
 
 };
-}, "browser/url": function(exports, require, module) {/*
+}, "undefinedlib/browser/url": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -385,7 +394,7 @@ module.exports = {
 };
 
 
-}, "core/constants": function(exports, require, module) {/*
+}, "undefinedlib/core/constants": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -406,7 +415,7 @@ module.exports = {
 module.exports = {
     SCXML_NS : "http://www.w3.org/2005/07/scxml"
 };
-}, "core/scxml/SCXML": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/SCXML": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -459,7 +468,8 @@ function SCXMLInterpreter(model, opts){
     this.opts.EventSet = this.opts.EventSet || ArraySet;
     this.opts.TransitionPairSet = this.opts.TransitionPairSet || ArraySet;
     this.opts.priorityComparisonFn = this.opts.priorityComparisonFn || getTransitionWithHigherSourceChildPriority(this.opts.model);
-
+    this.opts.retrace = false;
+    
     this._sessionid = this.opts.sessionid || "";
 
     this._configuration = new this.opts.BasicStateSet();
@@ -610,7 +620,7 @@ SCXMLInterpreter.prototype = {
                    if(l.onExit) l.onExit(state.id); 
                 });
 
-                if(state.onexit !== "") this._evaluateAction(state.onexit,eventSet, datamodelForNextStep, eventsToAddToInnerQueue);
+                if(state.onexit !== undefined) this._evaluateAction(state.onexit,eventSet, datamodelForNextStep, eventsToAddToInnerQueue);
 
                 var f;
                 if (state.history) {
@@ -659,7 +669,7 @@ SCXMLInterpreter.prototype = {
                    if(l.onEntry) l.onEntry(state.id); 
                 });
 
-                if(state.onentry !== "") this._evaluateAction(state.onentry, eventSet, datamodelForNextStep, eventsToAddToInnerQueue);
+                if(state.onentry !== undefined) this._evaluateAction(state.onentry, eventSet, datamodelForNextStep, eventsToAddToInnerQueue);
             },this);
 
             if (printTrace) pm.platform.log("updating configuration ");
@@ -691,8 +701,9 @@ SCXMLInterpreter.prototype = {
 
     /** @private */
     _evaluateAction : function(actionRef, eventSet, datamodelForNextStep, eventsToAddToInnerQueue) {
+        if(this.opts.retrace) return;
         function $raise(event){
-            eventsToAddToInnerQueue.add(event);
+            eventsToAddToInnerQueue.add({ name: event, data : {}});
         }
 
         var n = this._getScriptingInterface(datamodelForNextStep, eventSet, true);
@@ -968,7 +979,13 @@ SCXMLInterpreter.prototype = {
 
     /** @expose */
     unregisterListener : function(listener){
-        return this._listeners.splice(this._listeners.indexOf(listener),1);
+        var retval;
+        var index = this._listeners.indexOf(listener);
+        if (index >= 0) {
+          retval = this._listeners.splice(index,1);
+        }
+
+        return retval;
     }
 
 };
@@ -1057,7 +1074,7 @@ module.exports = {
     SCXMLInterpreter: SCXMLInterpreter,
     SimpleInterpreter: SimpleInterpreter
 };
-}, "core/scxml/default-transition-selector": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/default-transition-selector": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -1078,7 +1095,7 @@ module.exports = function(state,eventNames,evaluator){
         return !t.event || ( eventNames.indexOf(t.event) > -1 && (!t.cond || evaluator(t)) );
     });
 };
-}, "core/scxml/json2model": function(exports, require, module) {//     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/json2model": function(exports, require, module) {//     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //     Licensed under the Apache License, Version 2.0 (the "License");
 //     you may not use this file except in compliance with the License.
@@ -1207,7 +1224,7 @@ if(require.main === module){
     }
 
 }
-}, "core/scxml/model": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/model": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -1263,7 +1280,7 @@ var model = {
 };
 
 module.exports = model;
-}, "core/scxml/scxml-dynamic-name-match-transition-selector": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/scxml-dynamic-name-match-transition-selector": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -1307,7 +1324,7 @@ module.exports = function(state, eventNames, evaluator) {
         return (!t.events || nameMatch(t,eventNames)) && (!t.cond || evaluator(t));
     });
 };
-}, "core/scxml/set/ArraySet": function(exports, require, module) {//     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/set/ArraySet": function(exports, require, module) {//     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //     Licensed under the Apache License, Version 2.0 (the "License");
 //     you may not use this file except in compliance with the License.
@@ -1395,7 +1412,7 @@ ArraySet.prototype = {
 };
 
 module.exports = ArraySet;
-}, "core/scxml/setup-default-opts": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/setup-default-opts": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -1425,7 +1442,7 @@ module.exports = function(opts) {
     return opts;
 };
 
-}, "core/scxml/state-kinds-enum": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+}, "undefinedlib/core/scxml/state-kinds-enum": function(exports, require, module) {//   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -1449,7 +1466,7 @@ module.exports = {
     INITIAL: 4,
     FINAL: 5
 };
-}, "core/util/annotate-scxml-json": function(exports, require, module) {/*
+}, "undefinedlib/core/util/annotate-scxml-json": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -1656,8 +1673,10 @@ function transformDatamodel(node, ancestors) {
 }
 
 function transformStateNode(node, ancestors) {
-    var id = pm.platform.dom.hasAttribute(node,"id") ? pm.platform.dom.getAttribute(node,"id") :  genId(pm.platform.dom.localName(node));
-    var kind; 
+
+    var id 
+     , kind
+     , state;
 
     switch (pm.platform.dom.localName(node)) {
         case "state":
@@ -1684,11 +1703,27 @@ function transformStateNode(node, ancestors) {
             break;
         default : break;
     }
-    var state = {
+    
+    id = pm.platform.dom.hasAttribute(node,"id") 
+    ? pm.platform.dom.getAttribute(node,"id") 
+    :  genId(pm.platform.dom.localName(node)); 
+
+    if (pm.platform.dom.hasAttribute(node,"id") && kind !== stateKinds.HISTORY) {
+      state = {
+          id: id,
+          kind: kind,
+          descendants: [],
+          name: pm.platform.dom.getAttribute(node, "name"),
+          type: pm.platform.dom.getAttribute(node, "type")
+      };
+    } else {
+      state = {
         id: id,
         kind: kind,
         descendants: []
-    };
+      };
+    }
+
     idToStateMap[id] = state;
     if (ancestors.length) state.parent = ancestors[ancestors.length - 1];
     if (kind === stateKinds.HISTORY) {
@@ -1709,8 +1744,8 @@ function transformStateNode(node, ancestors) {
     });
 
     //need to do some work on his children
-    var onExitChildren = [],
-        onEntryChildren = [];
+    var onExitChildren,
+        onEntryChildren;
     var transitionChildren = [];
     var stateChildren = [];
 
@@ -1735,10 +1770,10 @@ function transformStateNode(node, ancestors) {
                 transitionChildren.push(transformTransitionNode(child, state));
                 break;
             case "onentry":
-                onEntryChildren.push(codeGen.gen.parentToFnBody(child));
+                onEntryChildren = codeGen.gen.parentToFnBody(child);
                 break;
             case "onexit":
-                onExitChildren.push(codeGen.gen.parentToFnBody(child));
+                onExitChildren = codeGen.gen.parentToFnBody(child);
                 break;
             case "initial":
                 if (!processedInitial) {
@@ -1787,8 +1822,8 @@ function transformStateNode(node, ancestors) {
         }
     }
 
-    state.onexit = onExitChildren.join(';');
-    state.onentry = onEntryChildren.join(';');
+    state.onexit = onExitChildren;
+    state.onentry = onEntryChildren;
     state.transitions = transitionChildren.map(function(transition){return transition.documentOrder;});
     state.children = stateChildren.map(function(child){return child.id;});
 
@@ -1844,7 +1879,7 @@ function getScope(transition){
 //this script can be called as a main script to convert an xml file to annotated scxml.
 //TODO: get google closure to compile this out as dead code in the browser build
 if(require.main === module) console.log(JSON.stringify(transform((new (require('xmldom').DOMParser)).parseFromString(require('fs').readFileSync(process.argv[2],'utf8'))),4,4));
-}, "core/util/code-gen": function(exports, require, module) {/*
+}, "undefinedlib/core/util/code-gen": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -2182,7 +2217,7 @@ module.exports = {
         }
     }
 };
-}, "core/util/docToModel": function(exports, require, module) {/*
+}, "undefinedlib/core/util/docToModel": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -2300,7 +2335,7 @@ function traverse(node,nodeList){
 
 
 module.exports = documentToModel;
-}, "core/util/util": function(exports, require, module) {/*
+}, "undefinedlib/core/util/util": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -2331,7 +2366,385 @@ module.exports = {
         return target;
     }
 };
-}, "platform": function(exports, require, module) {/*
+}, "undefinedlib/node/dom": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+module.exports = require('../base-platform/dom');    //pass straight through. no modifications needed
+
+var XMLSerializer = require('xmldom').XMLSerializer;
+
+module.exports.serializeToString = function(node){
+    return (new XMLSerializer()).serializeToString(node);
+};
+}, "undefinedlib/node/get": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+/**
+ * This module contains some utility functions for getting stuff in node.js.
+ */
+
+var http = require('http'),
+    urlM = require('url'),
+    fs = require('fs');
+
+function httpGet(url,cb){
+    var options = urlM.parse(url);
+    http.get(options, function(res) {
+        var s = "";
+        res.on('data',function(d){
+            s += d;
+        });
+        res.on('end',function(){
+            if(res.statusCode === 200){
+                cb(null,s);
+            }else{
+                cb(new Error('HTTP code ' + res.statusCode + ' : ' + s));
+            }
+        });
+    }).on('error', function(e) {
+        cb(e);
+    });
+}
+
+//TODO: write a little httpPost abstraction
+function httpPost(url,data,cb){
+}
+
+function getResource(url,cb,context){
+    var urlObj = urlM.parse(url);
+    if(urlObj.protocol === 'http:' || url.protocol === 'https:'){
+        httpGet(url,cb);
+    }else if(!urlObj.protocol){
+        //assume filesystem
+        fs.readFile(url,'utf8',cb);
+    }else{
+        //pass in error for unrecognized protocol
+        cb(new Error("Unrecognized protocol"));
+    }
+}
+
+module.exports = {
+    getResource : getResource,
+    httpGet : httpGet,
+    httpPost : httpPost
+};
+}, "undefinedlib/node/node-listener-client": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+var http = require('http');
+
+function HTTPClientListener(options){
+    this.options = options;
+
+    var agent = new http.Agent();
+    agent.maxSockets = 1;     //serialize all requests
+
+    this.defaultOptions = {
+        host : "localhost",
+        port : "1337",
+        agent : agent 
+    };
+
+}
+
+function extend(o){
+    for(var i = 1; i < arguments.length; i++){
+        for(var k in arguments[i]){
+            var v = arguments[i][k];
+            o[k] = v;
+        }
+    }
+}
+
+HTTPClientListener.prototype = {
+    onEntry : function(id){
+        http.get(extend(
+            { path : "/onEntry?id=" + id },
+            this.defaultOptions,
+            this.options),
+            function(res){
+                //ignore the result
+            });
+    },
+    onExit : function(id){
+        http.get(extend(
+            { path : "/onExit?id=" + id },
+            this.defaultOptions,
+            this.options),
+            function(res){
+                //ignore the result
+            });
+    },
+    onTransition : function(sourceId,targetIds){
+        //TODO
+    }
+};
+
+module.exports = HTTPClientListener;
+}, "undefinedlib/node/node-scxml-gui-http-proxy-server": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+/*
+ * This utility exists to provide a nice HTTP front-end to send state change
+ * events from the node-listener-client or browser-listener-client to the
+ * scxmlgui tcp server. this allows nice debugging in a graphical environment
+ * of SCXML executing in SCION.
+ */
+
+var http = require('http'),
+    url = require('url'),
+    net = require('net');
+
+var args = process.argv.slice(2);
+
+//server port
+var httpServerPort = args[0] || 1337;
+
+//scxmlgui listener port
+var scxmlGuiTCPHost = args[1] || "localhost";
+var scxmlGuiTCPPort = parseInt(args[2],10) || 9999;
+
+
+//start up listener
+var serviceSocket = new net.Socket();
+
+serviceSocket.connect(scxmlGuiTCPPort, scxmlGuiTCPHost, function() {
+    //TODO: something goes here
+});
+
+serviceSocket.on("error", function (e) {
+    console.log("Could not connect to service at host " + scxmlGuiTCPHost + ', port ' + scxmlGuiTCPPort );
+    if(httpServer) httpServer.close();
+});
+
+serviceSocket.on("data", function(data) {
+    //the communications protocol is one-way, so we don't expect or do anything with this
+    console.log("received data from scxmlGUI socket",data);
+});
+
+serviceSocket.on("close", function(had_error) {
+    console.log("scxmlGUI socket closed unexpectedly");
+    if(httpServer) httpServer.close();
+});
+
+
+var httpServer = http.createServer(function (req, res) {
+    //expect url of the form:
+        //onEntry?id=<id>
+        //onExit?id=<id>
+        //onTransition?source=<id>&targets=<id1>,<id2>,...
+
+    var parsedUrl = url.parse(req.url, true);
+
+    switch(parsedUrl.pathname){
+        case "/onEntry":
+            serviceSocket.write("1 " + parsedUrl.query.id + "\n");
+            break;
+        case "/onExit":
+            serviceSocket.write("0 " + parsedUrl.query.id + "\n");
+            break;
+        case "/onTransition":
+            //TODO: this
+            //parsedUrl.query.targets = parsedUrl.query.targets.split(",");
+            break;
+        default : 
+            res.writeHead(400, {'Content-Type': 'text/plain'});
+            res.end('Unable to understand request\n');
+            return;
+    }
+
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end('Request processed\n');
+}).listen(httpServerPort);
+}, "undefinedlib/node/platform": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+var xmldom = require('xmldom'),
+    fs = require('fs'),
+    get = require('./get'),
+    pathModule = require('path'),
+    url = require('./url'),
+    vm = require('vm');
+
+function parseDocumentFromString(str){
+    return (new xmldom.DOMParser()).parseFromString(str);
+}
+
+function onModelCb(cb){
+    return function(err,s){
+        if(err){
+            cb(err);
+        }else{
+            try {
+                var doc = parseDocumentFromString(s);
+                cb(null,doc);
+            }catch(e){
+                cb(e);
+            }
+        }
+    };
+}
+
+exports.platform = {
+
+    //used in parsing
+    getDocumentFromUrl : function(url,cb){
+        get.httpGet(url,onModelCb(cb));
+    },
+
+    parseDocumentFromString : parseDocumentFromString,
+
+    //TODO: the callback is duplicate code. move this out.
+    getDocumentFromFilesystem : function(path,cb,context){
+        fs.readFile(path,'utf8',onModelCb(cb));
+    },
+
+    getResourceFromUrl : get.getResource,
+
+    //used at runtime
+    postDataToUrl : function(url,data,cb){
+        //TODO
+    },
+
+    setTimeout : setTimeout,
+
+    clearTimeout : clearTimeout,
+
+    log : console.log,
+
+    eval : function(content,name){
+        function cloneGlobal(){
+            var o = {};
+            for(var k in global){
+                o[k] = global[k];
+            }
+            return o;
+        }
+        //we clone the global object to try to create as familiar an execution environment as possible
+        return vm.runInNewContext('(' + content + ');', cloneGlobal(), name);
+    },
+
+    path : require('path'),     //same API
+
+    url : url,
+    dom : require('./dom')
+
+};
+}, "undefinedlib/node/url": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+var urlModule = require('url');
+
+module.exports = {
+    getPathFromUrl : function(url){
+        var oUrl = urlModule.parse(url);
+        return oUrl.pathname;
+    },
+
+    changeUrlPath : function(url,newPath){
+        var oUrl = urlModule.parse(url);
+
+        oUrl.path = oUrl.pathname = newPath;
+
+        return urlModule.format(oUrl);
+    },
+
+    resolve: function(base, target) {
+        return urlModule.resolve(base, target);
+    }
+};
+
+}, "undefinedlib/platform": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -2370,7 +2783,371 @@ if(isBrowser()){
 }else if(isRhino()){
     module.exports = require('./rhino/platform');
 }
-}, "scion": function(exports, require, module) {/*
+}, "undefinedlib/rhino/dom": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+var baseDom = require('../base-platform/dom');
+
+var dom = Object.create(baseDom);
+
+dom.getChildren = function(node){
+    var toReturn = [];
+    for(var i = 0; i < node.childNodes.length; i++){
+        toReturn.push(node.childNodes.item(i));
+    }
+    return toReturn;
+};
+
+["localName","getAttribute","namespaceURI","textContent"].forEach(function(methodName){
+    //pass through to baseDom, but convert return values to js strings.
+    //would be nice if I could just refer to this.__proto__, rather than use a closure, 
+    //but that's what happens when you use anonymous objects for everything, rather than objects created with constructor functions
+    var f = baseDom[methodName];
+    dom[methodName] = function(){
+        return String(f.apply(this,arguments));
+    };
+});
+
+
+dom.serializeToString = function(node){
+    var baos = new Packages.java.io.ByteArrayOutputStream();
+    var serializer = new Packages.org.apache.xml.serialize.XMLSerializer(
+                baos,
+                new Packages.org.apache.xml.serialize.OutputFormat());
+
+    serializer.asDOMSerializer().serialize(node);
+
+    var toReturn = String(new Packages.java.lang.String(baos.toByteArray()));
+    return toReturn;
+};
+
+module.exports = dom;
+}, "undefinedlib/rhino/get": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+/**
+ * This contains some functions for getting stuff in Rhino.
+ */
+
+function httpGet(url){
+    var urlObject = new Packages.java.net.URL(url);
+    var conn = urlObject.openConnection();
+    conn.setRequestMethod("GET");
+    var rd = new Packages.java.io.BufferedReader(
+                new Packages.java.io.InputStreamReader(
+                    conn.getInputStream()));
+    var line;
+    var result = "";
+    /*jsl:ignore*/
+    while (line = rd.readLine()) {
+    /*jsl:end*/
+        result += line;
+    }
+    rd.close();
+    return result;
+}
+
+//TODO
+function httpPost(url,data,cb){
+}
+
+function readFile(file){
+    var br = new Packages.java.io.BufferedReader(
+                new Packages.java.io.InputStreamReader(
+                new Packages.java.io.DataInputStream(
+                new Packages.java.io.FileInputStream(file))));
+    var result = "";
+    var strLine;
+    /*jsl:ignore*/
+    while (strLine = br.readLine()){
+    /*jsl:end*/
+        result += strLine;
+    }
+    br.close();
+    return result;
+}
+
+function getResource(url,cb,context){
+    try {
+        if(url.match(/^http(s?):/)){
+            var result = httpGet(url);
+            cb(null,result);
+        }else{
+            //assume filesystem
+            result = readFile(url);
+            cb(null,result);
+        }
+    }catch(e){
+        cb(e);
+    }
+}
+
+module.exports = {
+    httpGet : httpGet,
+    httpPost : httpPost,
+    readFile : readFile,
+    getResource : getResource
+};
+}, "undefinedlib/rhino/path": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+//some useful functions for manipulating paths
+
+module.exports = {
+
+    join : function(path1,path2){
+        return new Packages.java.io.File(path1,path2).path;
+    },
+
+    dirname : function(path){
+        return new Packages.java.io.File(path).parent;
+    },
+
+    basename : function(path,ext){
+        var name = Packages.java.io.File(path).name;
+        if(ext){
+            var names = this.extname(name);
+            if(names[1] === ext){
+                name = names[1];
+            }
+        }
+
+        return name;
+    },
+
+    extname : function(path){
+        //http://stackoverflow.com/a/4546093/366856
+        return path.split(/\\.(?=[^\\.]+$)/)[1];
+    }
+};
+}, "undefinedlib/rhino/platform": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+var timeout = require('./timeout'),
+    get = require('./get'),
+    path = require('./path'),
+    urlModule = require('./url');
+
+function getDb(){
+    var dbf = Packages.javax.xml.parsers.DocumentBuilderFactory.newInstance();
+    dbf.setNamespaceAware(true);
+    return dbf.newDocumentBuilder();
+}
+
+exports.platform = {
+
+    //used in parsing
+    getDocumentFromUrl : function(url,cb,context){
+        try {
+            var doc = getDb().parse(url);
+            cb(null,doc);
+        }catch(e){
+            cb(e);
+        }
+    },
+
+    parseDocumentFromString : function(str){
+        var db = getDb();
+        var is = new Packages.org.xml.sax.InputSource();
+        is.setCharacterStream(new Packages.java.io.StringReader(str));
+
+        return db.parse(is);
+    },
+
+    getDocumentFromFilesystem : function(url,cb,context){
+        this.getDocumentFromUrl(url,cb,context);
+    },
+
+    getResourceFromUrl : get.getResource,
+
+    //used at runtime
+    postDataToUrl : function(url,data,cb){
+        //TODO
+    },
+
+    setTimeout : timeout.setTimeout,
+
+    clearTimeout : timeout.clearTimeout,
+
+    log : function(){
+        for(var i=0; i < arguments.length; i++){
+            Packages.java.lang.System.out.println(String(arguments[i]));
+        }
+    },
+
+    eval : function(content,name){
+        //Set up execution context.
+        var rhinoContext = Packages.org.mozilla.javascript.ContextFactory.getGlobal().enterContext();
+
+        return rhinoContext.evaluateString(this, "(" + content + ")", name, 0, null);
+    },
+
+    path : path,
+    url : urlModule ,
+    dom : require('./dom')
+};
+}, "undefinedlib/rhino/timeout": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+//set up environment
+(function(){
+    var counter = 1; 
+    var ids = {};
+    var timer;
+    var activeTasks = 0;
+
+    function cleanUpTimer(){
+        activeTasks--; 
+        if(activeTasks === 0){
+            timer = null;   //clean up timer
+        }
+    }
+
+    exports.setTimeout = function (fn,delay) {
+        var id = counter++;
+
+        activeTasks++; 
+        //lazy-init timer
+        if(!timer){
+            timer = new Packages.java.util.Timer();
+        }
+
+        var task = new Packages.java.util.TimerTask({run: function(){
+            cleanUpTimer();
+            fn();
+        }});
+        timer.schedule(task,delay);
+        ids[id] = task;
+        return id;
+    };
+
+    exports.clearTimeout = function (id) {
+        var task = ids[id];
+        task.cancel();
+        timer.purge();
+        //make sure that we clean up all references to the time so it prevent the program from terminating
+        delete ids[id];
+        cleanUpTimer();
+    };
+})();
+}, "undefinedlib/rhino/url": function(exports, require, module) {/*
+     Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+             http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+*/
+
+"use strict";
+
+//some useful functions for manipulating urls
+
+module.exports = {
+    getPathFromUrl : function(url){
+        //parse url
+        var urlObject = new Packages.java.net.URL(url);
+
+        //extract path
+        return urlObject.path; 
+    },
+
+    changeUrlPath : function(url,newPath){
+        //parse url again
+        var urlObject = new Packages.java.net.URL(url);
+
+        //create a new url, and return a string
+        return String((new Packages.java.net.URL(urlObject.protocol, urlObject.host, urlObject.port, newPath)).toString());
+    },
+
+    resolve: function(base, target) {
+        var newUrl = new Packages.java.net.URL(new Packages.java.net.URL(base), target);
+        return newUrl.toString();
+    }
+};
+}, "undefinedlib/scion": function(exports, require, module) {/*
      Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
 
      Licensed under the Apache License, Version 2.0 (the "License");
