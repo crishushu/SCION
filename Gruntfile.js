@@ -1,7 +1,7 @@
 module.exports = function(grunt) {
     // Project configuration.
     grunt.initConfig({
-        npmEnv: '',
+        npmEnv: '/Users/crishushu/GoogleDrive/src/node_modules/',
         debugPort: '9999',
         connectPort: 35729,
         base: '.',
@@ -26,6 +26,7 @@ module.exports = function(grunt) {
         stitch: {
             options: {
                 rootModuleName: 'scion',
+                paths: ['lib'],
                 excludes: [
                     'lib/node',
                     'lib/rhino',
@@ -41,7 +42,9 @@ module.exports = function(grunt) {
             }
         }
     });
-    // require(NPM_ENV + 'grunt-contrib-uglify/tasks/uglify')(grunt);
+    
+
+    // var NPM_ENV = grunt.config.get('npmEnv');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-stitch');
     grunt.registerTask('default', ['stitch:build', 'uglify:build']);

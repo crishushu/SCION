@@ -28,11 +28,10 @@
         "xmldom": "git://github.com/jbeard4/xmldom.git"
     },
     "devDependencies": {
-        "stitch": "git://github.com/cezary/grunt-stitch.git",
-        "grunt-contrib-uglify": "*",
-	"uglify-js": "*",
-        "grunt": "~0.4.2",
-        "grunt-contrib-uglify": "~0.3.2"
+        "stitch" : "git://github.com/jbeard4/stitch.git",
+        "uglify-js" : "*",
+        "grunt-contrib-uglify": "~0.3.2",
+        "grunt-stitch": "git://github.com/crishushu/grunt-stitch.git"
     },
     "engines": {
         "node": ">=0.6"
